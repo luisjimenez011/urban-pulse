@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Body } from '@nestjs/common';
 import { AppService } from './app.service';
+import { Param } from '@nestjs/common';
 
 // Definimos qué datos esperamos recibir (DTO - Data Transfer Object)
 class CreateIncidentDto {
@@ -26,6 +27,11 @@ export class AppController {
   @Get('incidents') // Nuevo endpoint: GET /api/v1/incidents
   async getIncidents() {
     return this.appService.findAllIncidents();
+  }
+
+  @Post('incidents/:id/dispatch')
+  async dispatch(@Param('id') id: string) {
+    return this.appService.dispatchUnit(id);
   }
   
 }

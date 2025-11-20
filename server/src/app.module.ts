@@ -19,7 +19,7 @@ import { Incident } from './incident.entity';
 
     // 2. AQUÍ ESTÁ LA SOLUCIÓN:
     // Esto crea los Repositorios para que el Service los pueda usar
-    TypeOrmModule.forFeature([Incident]), 
+    TypeOrmModule.forFeature([Incident,Unit]), 
   ],
   controllers: [AppController],
   providers: [AppService, EventsGateway],
