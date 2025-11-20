@@ -1,10 +1,11 @@
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents , Polyline} from 'react-leaflet';
 import { useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
 
 // --- CONFIGURACIÓN DE ICONOS ---
 
@@ -146,6 +147,26 @@ const MapComponent = () => {
           </Popup>
         </Marker>
       ))}
+      {/* LÍNEAS DE RUTA (CONNECTION LINES) */}
+      {incidents.map((inc) => {
+        // Solo dibujamos línea si está asignado Y tenemos la unidad cargada
+        if (inc.status === 'ASSIGNED' && inc.assigned_unit) {
+          return (
+            <Polyline 
+              key={`line-${inc.id}`}
+              // Punto A: El Incidente (Estático)
+              // Punto B: La Ambulancia (Dinámico - usamos la variable de estado 'position')
+              // NOTA: Asumimos que solo hay 1 ambulancia moviéndose por ahora para la demo.
+              positions={[
+                [inc.location.coordinates[1], inc.location.coordinates[0]], // Incidente
+                position // Ambulancia en movimiento (variable de estado)
+              ]}
+              pathOptions={{ color: 'blue', dashArray: '10, 10', weight: 3, opacity: 0.6 }}
+            />
+          );
+        }
+        return null;
+      })}
 
     </MapContainer>
   );
