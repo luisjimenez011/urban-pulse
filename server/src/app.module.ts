@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { Unit } from './unit.entity';
+import { EventsGateway } from './events.gateway';
 
 @Module({
   imports: [
@@ -9,11 +11,13 @@ import { AppService } from './app.service';
       type: 'postgres',
       url: 'postgresql://postgres:oU:_1m8E){97@db.ehnqvmgkyufhceqoykag.supabase.co:5432/postgres', 
       autoLoadEntities: true,
-      synchronize: true, // Solo para desarrollo: crea tablas automáticamente si faltan
+      synchronize: false, // Solo para desarrollo: crea tablas automáticamente si faltan
       ssl: { rejectUnauthorized: false }, // Necesario para Supabase
+      entities: [Unit],
+      
     }),
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService,EventsGateway],
 })
 export class AppModule {}
