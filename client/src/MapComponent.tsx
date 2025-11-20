@@ -4,7 +4,7 @@ import {
   Marker,
   Popup,
   useMapEvents,
-  Polyline,
+  Polyline, // ¡Necesario para dibujar la ruta!
 } from "react-leaflet";
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
@@ -16,10 +16,10 @@ import iconShadow from "leaflet/dist/images/marker-shadow.png";
 // --- CONFIGURACIÓN DE ICONOS ---
 
 const getUnitIcon = (status: string) => {
-  let filterClass = "idle-icon"; // Verde por defecto
+  let filterClass = "idle-icon"; 
 
   if (status === "BUSY" || status === "ASSIGNED") {
-    filterClass = "busy-icon"; // Rojo
+    filterClass = "busy-icon"; // Rojo/Rosa (según tu CSS)
   } else if (status === "OFFLINE") {
     filterClass = "offline-icon"; // Gris
   }
@@ -29,11 +29,11 @@ const getUnitIcon = (status: string) => {
     shadowUrl: iconShadow,
     iconSize: [25, 41],
     iconAnchor: [12, 41],
-    className: filterClass, // El filtro CSS se aplica aquí
+    className: filterClass, 
   });
 };
 
-// 2. Icono Rojo (Incidente)
+// Icono de Incidente (Rojo)
 const IncidentIcon = L.icon({
   iconUrl: icon,
   shadowUrl: iconShadow,
@@ -83,7 +83,7 @@ const MapComponent = () => {
   ]);
   const [incidents, setIncidents] = useState<any[]>([]);
   const [unitStatus, setUnitStatus] = useState<string>("IDLE");
-  const [unitId, setUnitId] = useState<string>("");
+  const [routeGeometry, setRouteGeometry] = useState<[number, number][]>([]);
 
   const loadIncidents = () => {
     fetch("http://localhost:3000/api/v1/incidents")
@@ -105,6 +105,38 @@ const MapComponent = () => {
     };
   }, []);
 
+  // Hook para calcular y dibujar la ruta REAL (OSRM)
+  useEffect(() => {
+    const assignedIncident = incidents.find(inc => inc.status === 'ASSIGNED');
+
+    if (assignedIncident) {
+        // Incidente (estático): [lng, lat]
+        const incLngLat = assignedIncident.location.coordinates;
+        
+        // Ambulancia (dinámico): [lat, lng] -> Necesitamos revertir a [lng, lat] para el API
+        const unitLngLat = [position[1], position[0]]; 
+
+        // Construimos los parámetros: OSRM espera Lng,Lat
+        const startParam = `${unitLngLat[0]},${unitLngLat[1]}`;
+        const endParam = `${incLngLat[0]},${incLngLat[1]}`;
+        
+        // Llamamos a nuestro nuevo endpoint
+        fetch(`http://localhost:3000/api/v1/route?start=${startParam}&end=${endParam}`)
+            .then(res => res.json())
+            .then(geometry => {
+                if (geometry) {
+                    // OSRM devuelve [Lng, Lat], Leaflet necesita [Lat, Lng]
+                    const leafletRoute = geometry.map(point => [point[1], point[0]]);
+                    setRouteGeometry(leafletRoute);
+                }
+            })
+            .catch(err => console.error("Error al obtener la ruta:", err));
+    } else {
+        setRouteGeometry([]); // Limpiar la ruta si no hay asignados
+    }
+  }, [position, incidents]); 
+
+
   return (
     <MapContainer
       center={[40.416775, -3.70379]}
@@ -112,13 +144,13 @@ const MapComponent = () => {
       style={{ height: "500px", width: "100%" }}
     >
       <TileLayer
-        attribution="&copy; OpenStreetMap contributors"
+        attribution='&copy; OpenStreetMap contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
       <LocationMarker refreshIncidents={loadIncidents} />
 
-      {/* MARCADOR 1: La Ambulancia (Azul) */}
+      {/* MARCADOR 1: La Ambulancia (Color Dinámico) */}
       <Marker position={position} icon={getUnitIcon(unitStatus)}>
         <Popup>
           🚑 UNIDAD-01 <br />
@@ -144,7 +176,7 @@ const MapComponent = () => {
                 borderTop: "1px solid #ccc",
               }}
             />
-            {/* --- AQUÍ ESTÁ LA LÓGICA NUEVA --- */}
+            {/* --- LÓGICA DE DESPACHO --- */}
             {inc.status === "PENDING" ? (
               <button
                 style={{
@@ -158,19 +190,17 @@ const MapComponent = () => {
                   fontWeight: "bold",
                 }}
                 onClick={() => {
-                  // 1. Petición al endpoint de despacho
                   fetch(
                     `http://localhost:3000/api/v1/incidents/${inc.id}/dispatch`,
                     { method: "POST" }
                   )
                     .then((res) => res.json())
                     .then((data) => {
-                      // 2. Manejo de respuesta
                       if (data.status === "ERROR") {
-                        alert("❌ " + data.message); // "No hay unidades disponibles"
+                        alert("❌ " + data.message);
                       } else {
                         alert(`✅ Unidad asignada correctamente!`);
-                        loadIncidents(); // 3. Recargar mapa para ver el cambio
+                        loadIncidents(); 
                       }
                     })
                     .catch((err) => console.error(err));
@@ -192,31 +222,14 @@ const MapComponent = () => {
           </Popup>
         </Marker>
       ))}
-      {/* LÍNEAS DE RUTA (CONNECTION LINES) */}
-      {incidents.map((inc) => {
-        // Solo dibujamos línea si está asignado Y tenemos la unidad cargada
-        if (inc.status === "ASSIGNED" && inc.assigned_unit) {
-          return (
-            <Polyline
-              key={`line-${inc.id}`}
-              // Punto A: El Incidente (Estático)
-              // Punto B: La Ambulancia (Dinámico - usamos la variable de estado 'position')
-              // NOTA: Asumimos que solo hay 1 ambulancia moviéndose por ahora para la demo.
-              positions={[
-                [inc.location.coordinates[1], inc.location.coordinates[0]], // Incidente
-                position, // Ambulancia en movimiento (variable de estado)
-              ]}
-              pathOptions={{
-                color: "blue",
-                dashArray: "10, 10",
-                weight: 3,
-                opacity: 0.6,
-              }}
-            />
-          );
-        }
-        return null;
-      })}
+      
+      {/* DIBUJO DE LA RUTA REAL (Polyline complejo) */}
+      {routeGeometry.length > 0 && (
+          <Polyline 
+              positions={routeGeometry} 
+              pathOptions={{ color: '#007bff', dashArray: '8, 8', weight: 4 }} 
+          />
+      )}
     </MapContainer>
   );
 };

@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { EventsGateway } from './events.gateway';
 import { Unit } from './unit.entity';
 import { Incident } from './incident.entity'; 
+import { RoutingService } from './routing.service';
 
 @Module({
   imports: [
@@ -22,6 +23,6 @@ import { Incident } from './incident.entity';
     TypeOrmModule.forFeature([Incident,Unit]), 
   ],
   controllers: [AppController],
-  providers: [AppService, EventsGateway],
+  providers: [AppService, EventsGateway, RoutingService],
 })
 export class AppModule {}

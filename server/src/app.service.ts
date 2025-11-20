@@ -37,24 +37,20 @@ export class AppService {
 
   // --- NUEVO MÉTODO: DESPACHAR ---
   async dispatchUnit(incidentId: string) {
-    const incident = await this.incidentRepo.findOne({
-      where: { id: incidentId },
-    });
+    const incident = await this.incidentRepo.findOne({ where: { id: incidentId } });
     if (!incident) throw new NotFoundException('Incidente no encontrado');
 
     // 1. LÓGICA INTELIGENTE: Buscar la unidad 'IDLE' más cercana usando PostGIS.
-    const nearestUnit = await this.unitRepo
-      .createQueryBuilder('unit')
-      .where('unit.status = :status', { status: 'IDLE' })
-      // Añadimos la cláusula ORDER BY usando la función ST_Distance para calcular la distancia
-      // entre la ubicación de la unidad y la ubicación del incidente (PostGIS).
-      .orderBy(
-        'ST_Distance(unit.location::geography, :incidentLocation::geography)',
-        'ASC',
-      )
-      .setParameter('incidentLocation', incident.location)
-      .limit(1) // Solo queremos la primera (la más cercana)
-      .getOne();
+    const nearestUnit = await this.unitRepo.createQueryBuilder('unit')
+        .where('unit.status = :status', { status: 'IDLE' })
+        
+        // --- CAMBIO CRUCIAL AQUÍ ---
+        // Usamos ST_GeomFromGeoJSON(:incidentLocation) para parsear la cadena JSON.
+        // El resultado de ST_GeomFromGeoJSON es de tipo GEOMETRY, por lo que lo casteamos a GEOGRAPHY
+        .orderBy('ST_Distance(unit.location::geography, ST_GeomFromGeoJSON(:incidentLocation)::geography)', 'ASC')
+        .setParameter('incidentLocation', JSON.stringify(incident.location)) 
+        .limit(1) 
+        .getOne();
 
     if (!nearestUnit) {
       return { status: 'ERROR', message: 'No hay unidades disponibles.' };

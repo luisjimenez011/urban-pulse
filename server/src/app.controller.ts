@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query } from '@nestjs/common';
 import { AppService } from './app.service';
 import { Param } from '@nestjs/common';
+import { RoutingService } from './routing.service';
 
 // Definimos qué datos esperamos recibir (DTO - Data Transfer Object)
 class CreateIncidentDto {
@@ -12,7 +13,10 @@ class CreateIncidentDto {
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(
+    private readonly appService: AppService,
+    private readonly routingService: RoutingService,
+  ) {}
 
   @Get()
   getHello(): object {
@@ -32,6 +36,18 @@ export class AppController {
   @Post('incidents/:id/dispatch')
   async dispatch(@Param('id') id: string) {
     return this.appService.dispatchUnit(id);
+  }
+
+  @Get('route')
+  async getRoute(
+    @Query('start') start: string, // lng,lat
+    @Query('end') end: string,     // lng,lat
+  ) {
+    const startCoords = start.split(',').map(Number) as [number, number];
+    const endCoords = end.split(',').map(Number) as [number, number];
+
+    // OSRM espera [Lng, Lat]
+    return this.routingService.getRoute(startCoords, endCoords);
   }
   
 }
