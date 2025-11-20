@@ -28,4 +28,8 @@ export class AppService {
     console.log('Incidente guardado:', saved.id);
     return saved;
   }
+
+  async findAllIncidents() {
+    return this.incidentRepo.find();
+  }
 }

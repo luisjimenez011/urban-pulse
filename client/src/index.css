@@ -66,3 +66,8 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+/* Filtro para cambiar el color del icono azul a rojo */
+.red-icon {
+  filter: hue-rotate(140deg) brightness(0.9) saturate(3);
+}

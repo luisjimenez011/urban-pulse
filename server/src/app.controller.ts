@@ -22,4 +22,10 @@ export class AppController {
   async createIncident(@Body() body: CreateIncidentDto) {
     return this.appService.createIncident(body);
   }
+
+  @Get('incidents') // Nuevo endpoint: GET /api/v1/incidents
+  async getIncidents() {
+    return this.appService.findAllIncidents();
+  }
+  
 }
