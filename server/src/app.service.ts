@@ -6,72 +6,72 @@ import { Unit } from './unit.entity';
 
 @Injectable()
 export class AppService {
-  constructor(
-    @InjectRepository(Incident)
-    private incidentRepo: Repository<Incident>,
-    @InjectRepository(Unit)
-    private unitRepo: Repository<Unit>,
-  ) {}
+  constructor(
+    @InjectRepository(Incident)
+    private incidentRepo: Repository<Incident>,
+    @InjectRepository(Unit)
+    private unitRepo: Repository<Unit>,
+  ) {}
 
-  getHello(): object {
-    return {
-      status: 'OK',
-      system: 'UrbanPulse Backend',
-      timestamp: new Date(),
-    };
-  }
+  getHello(): object {
+    return {
+      status: 'OK',
+      system: 'UrbanPulse Backend',
+      timestamp: new Date(),
+    };
+  }
 
-  async createIncident(data: any) {
-    const newIncident = this.incidentRepo.create({
-      title: data.title,
-      description: data.description,
-      location: { type: 'Point', coordinates: [data.lng, data.lat] },
-    });
-    return this.incidentRepo.save(newIncident);
-  }
+  // Función modificada para aceptar 'priority' como opcional
+  async createIncident(data: { title: string, description: string, lng: number, lat: number, priority?: string }) {
+    const newIncident = this.incidentRepo.create({
+      title: data.title,
+      description: data.description,
+      location: { type: 'Point', coordinates: [data.lng, data.lat] } as any,
+      status: 'PENDING', 
+      
+      priority: data.priority, // <--- ¡USAMOS EL VALOR ENVIADO! Si es HIGH, se guarda HIGH.
+    });
+    return this.incidentRepo.save(newIncident);
+}
 
-  async findAllIncidents() {
-    // Añadimos 'relations' para ver qué unidad tiene asignada el incidente (si tiene alguna)
-    return this.incidentRepo.find({ 
-    relations: ['assigned_unit'],
-    // PRIORIZACIÓN: Primero por prioridad (High, Medium, Low), luego por fecha de creación
-    order: {
-        priority: 'DESC', // HIGH debe ser lo primero
-        created_at: 'ASC',
-    },
+  async findAllIncidents() {
+    // Añadimos 'relations' para ver qué unidad tiene asignada el incidente (si tiene alguna)
+    return this.incidentRepo.find({ 
+    relations: ['assigned_unit'],
+    // PRIORIZACIÓN: Ordenación por prioridad (High, Medium, Low)
+    order: {
+        priority: 'DESC', 
+        created_at: 'ASC',
+    },
 });
-  }
+  }
 
-  // --- NUEVO MÉTODO: DESPACHAR ---
-  async dispatchUnit(incidentId: string) {
-    const incident = await this.incidentRepo.findOne({ where: { id: incidentId } });
-    if (!incident) throw new NotFoundException('Incidente no encontrado');
+  // --- MÉTODO: DESPACHAR ---
+  async dispatchUnit(incidentId: string) {
+    const incident = await this.incidentRepo.findOne({ where: { id: incidentId } });
+    if (!incident) throw new NotFoundException('Incidente no encontrado');
 
-    // 1. LÓGICA INTELIGENTE: Buscar la unidad 'IDLE' más cercana usando PostGIS.
-    const nearestUnit = await this.unitRepo.createQueryBuilder('unit')
-        .where('unit.status = :status', { status: 'IDLE' })
-        
-        // --- CAMBIO CRUCIAL AQUÍ ---
-        // Usamos ST_GeomFromGeoJSON(:incidentLocation) para parsear la cadena JSON.
-        // El resultado de ST_GeomFromGeoJSON es de tipo GEOMETRY, por lo que lo casteamos a GEOGRAPHY
-        .orderBy('ST_Distance(unit.location::geography, ST_GeomFromGeoJSON(:incidentLocation)::geography)', 'ASC')
-        .setParameter('incidentLocation', JSON.stringify(incident.location)) 
-        .limit(1) 
-        .getOne();
+    // 1. LÓGICA INTELIGENTE: Buscar la unidad 'IDLE' más cercana usando PostGIS.
+    const nearestUnit = await this.unitRepo.createQueryBuilder('unit')
+        .where('unit.status = :status', { status: 'IDLE' })
+        .orderBy('ST_Distance(unit.location::geography, ST_GeomFromGeoJSON(:incidentLocation)::geography)', 'ASC')
+        .setParameter('incidentLocation', JSON.stringify(incident.location)) 
+        .limit(1) 
+        .getOne();
 
-    if (!nearestUnit) {
-      return { status: 'ERROR', message: 'No hay unidades disponibles.' };
-    }
+    if (!nearestUnit) {
+      return { status: 'ERROR', message: 'No hay unidades disponibles.' };
+    }
 
-    // 2. Realizar la asignación (el resto es igual)
-    incident.status = 'ASSIGNED';
-    incident.assigned_unit = nearestUnit;
+    // 2. Realizar la asignación
+    incident.status = 'ASSIGNED';
+    incident.assigned_unit = nearestUnit;
 
-    nearestUnit.status = 'BUSY';
+    nearestUnit.status = 'BUSY';
 
-    await this.unitRepo.save(nearestUnit);
-    const savedIncident = await this.incidentRepo.save(incident);
+    await this.unitRepo.save(nearestUnit);
+    const savedIncident = await this.incidentRepo.save(incident);
 
-    return { status: 'SUCCESS', incident: savedIncident, unit: nearestUnit };
-  }
+    return { status: 'SUCCESS', incident: savedIncident, unit: nearestUnit };
+  }
 }

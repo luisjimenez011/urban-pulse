@@ -1,11 +1,13 @@
+/* client/src/index.css (NUEVA VERSIÓN COMPLETA) */
+
+/* --- RESET & PALETA DARK --- */
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color: #E0E0E0; /* Texto claro */
+  background-color: #1A1A1A; /* Fondo principal oscuro */
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -13,58 +15,110 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
 body {
   margin: 0;
   display: flex;
-  place-items: center;
-  min-width: 320px;
+  min-width: 100vw;
   min-height: 100vh;
+  background-color: #1A1A1A; 
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+#root {
+  display: flex;
+  flex-direction: column; /* Para apilar el control-panel arriba del mapa/sidebar */
+  width: 100%;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
+h3 {
+  color: #00FFFF; /* Títulos Neón */
+  margin: 0;
+}
+
+/* --- SECCIÓN 1: PANEL DE CONTROL SUPERIOR --- */
+.control-panel {
+  padding: 15px 30px;
+  background-color: #252525; /* Fondo de la cabecera */
+  border-bottom: 2px solid #00FFFF; /* Línea de contraste Neón */
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.control-panel input,
+.control-panel select {
+  padding: 8px;
+  background-color: #333333; 
+  color: #E0E0E0;
+  border: 1px solid #00FFFF; /* Borde Neón */
+  border-radius: 4px;
+}
+
+.report-button {
+  padding: 8px 16px;
+  background-color: #FF4D4D; /* Rojo Neón */
+  color: white; 
+  border: none;
+  border-radius: 4px;
   cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  font-weight: bold;
+  transition: background-color 0.3s;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+.report-button:hover {
+  background-color: #e60000;
+}
+
+
+/* --- SECCIÓN 2: MAPA Y BARRA LATERAL (FLEXBOX) --- */
+.map-and-sidebar {
+    display: flex;
+    flex-direction: row; 
+    height: calc(100vh - 67px); /* Ajusta la altura menos el panel superior (aprox. 67px) */
+}
+
+.sidebar {
+    width: 350px; /* Ancho fijo para la barra de estado */
+    background-color: #252525;
+    padding: 15px;
+    overflow-y: auto;
+    border-left: 2px solid #00FFFF; /* Separador Neón */
+}
+
+/* Estilo para los elementos de la lista de incidentes */
+.incident-item {
+    padding: 10px;
+    margin-bottom: 8px;
+    background-color: #333333;
+    border-radius: 6px;
+    border-left: 5px solid; 
+    transition: background-color 0.2s;
+}
+
+.incident-item:hover {
+    background-color: #444444;
+}
+
+.status-pending { border-left-color: #FF4D4D; } /* Rojo */
+.status-assigned { border-left-color: #00FFFF; } /* Cian */
+.status-resolved { border-left-color: #4CAF50; } /* Verde */
+
+.priority-tag {
+    font-size: 0.8em;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: bold;
+    margin-left: 10px;
+}
+
+.priority-HIGH { background-color: #FF4D4D; color: white; }
+.priority-MEDIUM { background-color: #FFC107; color: #1A1A1A; }
+.priority-LOW { background-color: #00FFFF; color: #1A1A1A; }
+
+
+/* --- SECCIÓN 3: ESTILOS DE LEAFLET --- */
+.leaflet-container {
+  flex-grow: 1; 
+  z-index: 1; /* Asegura que el mapa esté detrás del sidebar */
 }
 
 /* Filtro para cambiar el color del icono azul a rojo */
@@ -73,15 +127,12 @@ button:focus-visible {
 }
 
 /* ICONOS DINÁMICOS */
-/* Icono IDLE (Verde) */
 .idle-icon {
     filter: hue-rotate(100deg) brightness(0.9) saturate(3);
 }
-/* Icono BUSY/ASSIGNED (Rojo intenso - ya lo tienes como 'red-icon' pero lo renombras) */
 .busy-icon {
     filter: hue-rotate(30deg) brightness(1.2) saturate(3); 
 }
-/* Icono OFFLINE (Gris) */
 .offline-icon {
     filter: grayscale(100%);
 }

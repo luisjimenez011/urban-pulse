@@ -7,75 +7,80 @@ import { GeocodingService } from './geocoding.service';
 
 // Definimos qué datos esperamos recibir (DTO - Data Transfer Object)
 class CreateIncidentDto {
-  title: string;
-  description: string;
-  lat: number;
-  lng: number;
+  title: string;
+  description: string;
+  lat: number;
+  lng: number;
+  // Hacemos 'priority' opcional para evitar errores en la ruta '/incidents'
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH'; 
 }
 
 @Controller()
 export class AppController {
-  constructor(
-    private readonly appService: AppService,
-    private readonly routingService: RoutingService,
-    private readonly geocodingService: GeocodingService,
-  ) {}
+  constructor(
+    private readonly appService: AppService,
+    private readonly routingService: RoutingService,
+    private readonly geocodingService: GeocodingService,
+  ) {}
 
-  @Get()
-  getHello(): object {
-    return this.appService.getHello();
-  }
+  @Get()
+  getHello(): object {
+    return this.appService.getHello();
+  }
 
-  @Post('incidents')
-  async createIncident(@Body() body: CreateIncidentDto) {
-    return this.appService.createIncident(body);
-  }
+  @Post('incidents')
+  async createIncident(@Body() body: CreateIncidentDto) {
+    // TypeScript ya no lanza error porque 'priority' es opcional en el DTO
+    return this.appService.createIncident(body); 
+  }
 
-  @Get('incidents') // Nuevo endpoint: GET /api/v1/incidents
-  async getIncidents() {
-    return this.appService.findAllIncidents();
-  }
+  @Get('incidents') 
+  async getIncidents() {
+    return this.appService.findAllIncidents();
+  }
 
-  @Post('incidents/:id/dispatch')
-  async dispatch(@Param('id') id: string) {
-    return this.appService.dispatchUnit(id);
-  }
+  @Post('incidents/:id/dispatch')
+  async dispatch(@Param('id') id: string) {
+    return this.appService.dispatchUnit(id);
+  }
 
-  @Get('route')
-  async getRoute(
-    @Query('start') start: string, // lng,lat
-    @Query('end') end: string,     // lng,lat
-  ) {
-    const startCoords = start.split(',').map(Number) as [number, number];
-    const endCoords = end.split(',').map(Number) as [number, number];
+  @Get('route')
+  async getRoute(
+    @Query('start') start: string, // lng,lat
+    @Query('end') end: string,     // lng,lat
+  ) {
+    const startCoords = start.split(',').map(Number) as [number, number];
+    const endCoords = end.split(',').map(Number) as [number, number];
 
-    // OSRM espera [Lng, Lat]
-    return this.routingService.getRoute(startCoords, endCoords);
-  }
+    // OSRM espera [Lng, Lat]
+    return this.routingService.getRoute(startCoords, endCoords);
+  }
 
-  @Post('incident-by-address')
+  @Post('incident-by-address')
 async createIncidentByAddress(
-    @Body('title') title: string,
-    @Body('description') description: string,
-    @Body('address') address: string, // Nuevo campo
+    @Body('title') title: string,
+    @Body('description') description: string,
+    @Body('address') address: string, 
+    @Body('priority') priority: 'LOW' | 'MEDIUM' | 'HIGH', // <--- CAPTURAMOS LA PRIORIDAD
 ) {
-    if (!address) {
-        throw new BadRequestException('La dirección es requerida.');
-    }
+    if (!address) {
+        throw new BadRequestException('La dirección es requerida.');
+    }
 
-    const coords = await this.geocodingService.geocodeAddress(address);
+    const coords = await this.geocodingService.geocodeAddress(address);
 
-    if (!coords) {
-        throw new NotFoundException('Dirección no encontrada por el servicio de geocodificación.');
-    }
+    if (!coords) {
+        throw new NotFoundException('Dirección no encontrada por el servicio de geocodificación.');
+    }
 
-    // Ahora usamos las coordenadas obtenidas para crear el incidente.
-    return this.appService.createIncident({
-        title,
-        description,
-        lat: coords.lat, // El servicio las devuelve listas para usar
-        lng: coords.lng,
-    });
+    // Pasamos la prioridad capturada al servicio
+    return this.appService.createIncident({
+        title,
+        description,
+        lat: coords.lat, 
+        lng: coords.lng,
+        priority, // <--- PASAMOS LA PRIORIDAD
+    });
 }
-  
+  
 }

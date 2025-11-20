@@ -3,7 +3,6 @@ import {
   TileLayer,
   Marker,
   Popup,
-  // useMapEvents, // Ya no es necesario para crear incidentes por clic
   Polyline,
 } from "react-leaflet";
 import { useEffect, useState } from "react";
@@ -13,15 +12,18 @@ import L from "leaflet";
 import icon from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
 
+// URL del Backend
+const socket = io("http://localhost:3000");
+
 // --- CONFIGURACIÓN DE ICONOS ---
 
 const getUnitIcon = (status: string) => {
   let filterClass = "idle-icon";
 
   if (status === "BUSY" || status === "ASSIGNED") {
-    filterClass = "busy-icon"; // Rojo/Rosa (según tu CSS)
+    filterClass = "busy-icon";
   } else if (status === "OFFLINE") {
-    filterClass = "offline-icon"; // Gris
+    filterClass = "offline-icon";
   }
 
   return L.icon({
@@ -42,8 +44,74 @@ const IncidentIcon = L.icon({
   className: "red-icon",
 });
 
-// URL del Backend
-const socket = io("http://localhost:3000");
+
+// --- COMPONENTE PARA RENDERIZAR LA LISTA DE INCIDENTES EN EL SIDEBAR ---
+const IncidentList = ({ incidents, loadIncidents }: { incidents: any[], loadIncidents: () => void }) => {
+    // Función para despachar
+    const handleDispatch = (incidentId: string) => {
+        fetch(`http://localhost:3000/api/v1/incidents/${incidentId}/dispatch`, { method: "POST" })
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.status === "ERROR") {
+                    alert("❌ " + data.message);
+                } else {
+                    alert(`✅ Unidad asignada a incidente ${incidentId}!`);
+                    loadIncidents();
+                }
+            })
+            .catch((err) => console.error(err));
+    };
+
+    const pendingIncidents = incidents.filter(inc => inc.status === 'PENDING');
+    const assignedIncidents = incidents.filter(inc => inc.status === 'ASSIGNED');
+    const resolvedIncidents = incidents.filter(inc => inc.status === 'RESOLVED');
+
+    const renderIncidentItem = (inc: any) => (
+        <div key={inc.id} className={`incident-item status-${inc.status.toLowerCase()}`}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <strong style={{ color: inc.priority === 'HIGH' ? '#FF4D4D' : '#E0E0E0' }}>{inc.title}</strong>
+                <span className={`priority-tag priority-${inc.priority}`}>
+                    {inc.priority}
+                </span>
+            </div>
+            <small style={{ color: '#aaa' }}>{new Date(inc.created_at).toLocaleTimeString()} - {inc.description}</small>
+            <div style={{ marginTop: '5px' }}>
+                {inc.status === "PENDING" && (
+                    <button 
+                        onClick={() => handleDispatch(inc.id)}
+                        style={{ background: '#00FFFF', color: '#1A1A1A', border: 'none', padding: '4px 8px', borderRadius: '3px', cursor: 'pointer', marginTop: '5px' }}
+                    >
+                        DESPACHAR
+                    </button>
+                )}
+                {inc.status === "ASSIGNED" && (
+                    <span style={{ color: '#00FFFF' }}>Unidad en ruta.</span>
+                )}
+                {inc.status === "RESOLVED" && (
+                    <span style={{ color: '#4CAF50' }}>Resuelto.</span>
+                )}
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="sidebar">
+            <h3 style={{ color: '#E0E0E0', borderBottom: '1px solid #00FFFF', paddingBottom: '10px' }}>
+                📋 Estado de Incidentes
+            </h3>
+            
+            <h4 style={{ color: '#FF4D4D' }}>PENDIENTES ({pendingIncidents.length})</h4>
+            {pendingIncidents.length > 0 ? pendingIncidents.map(renderIncidentItem) : <p style={{color: '#888'}}>Sin incidentes pendientes. ✅</p>}
+
+            <h4 style={{ color: '#00FFFF', marginTop: '20px' }}>ASIGNADOS ({assignedIncidents.length})</h4>
+            {assignedIncidents.length > 0 ? assignedIncidents.map(renderIncidentItem) : <p style={{color: '#888'}}>Sin unidades en servicio.</p>}
+            
+            <h4 style={{ color: '#4CAF50', marginTop: '20px' }}>RESUELTOS ({resolvedIncidents.length})</h4>
+            {/* Opcional: Puedes mostrar un resumen de los resueltos aquí */}
+        </div>
+    );
+};
+
 
 // --- COMPONENTE PRINCIPAL ---
 const MapComponent = () => {
@@ -54,10 +122,10 @@ const MapComponent = () => {
   const [unitStatus, setUnitStatus] = useState<string>("IDLE");
   const [routeGeometry, setRouteGeometry] = useState<[number, number][]>([]);
 
-  // NUEVO ESTADO PARA GEOCODIFICACIÓN
+  // ESTADO PARA GEOCODIFICACIÓN
   const [newIncidentTitle, setNewIncidentTitle] = useState("");
   const [newIncidentAddress, setNewIncidentAddress] = useState("");
-  const [newIncidentPriority, setNewIncidentPriority] = useState("MEDIUM"); // Default
+  const [newIncidentPriority, setNewIncidentPriority] = useState("MEDIUM");
 
   const loadIncidents = () => {
     fetch("http://localhost:3000/api/v1/incidents")
@@ -84,17 +152,12 @@ const MapComponent = () => {
     const assignedIncident = incidents.find((inc) => inc.status === "ASSIGNED");
 
     if (assignedIncident) {
-      // Incidente (estático): [lng, lat]
       const incLngLat = assignedIncident.location.coordinates;
-
-      // Ambulancia (dinámico): [lat, lng] -> Necesitamos revertir a [lng, lat] para el API
       const unitLngLat = [position[1], position[0]];
 
-      // Construimos los parámetros: OSRM espera Lng,Lat
       const startParam = `${unitLngLat[0]},${unitLngLat[1]}`;
       const endParam = `${incLngLat[0]},${incLngLat[1]}`;
 
-      // Llamamos a nuestro nuevo endpoint
       fetch(
         `http://localhost:3000/api/v1/route?start=${startParam}&end=${endParam}`
       )
@@ -108,25 +171,26 @@ const MapComponent = () => {
         })
         .catch((err) => console.error("Error al obtener la ruta:", err));
     } else {
-      setRouteGeometry([]); // Limpiar la ruta si no hay asignados
+      setRouteGeometry([]);
     }
   }, [position, incidents]);
 
-  // NUEVA FUNCIÓN PARA CREAR INCIDENTE POR DIRECCIÓN (Geocodificación)
+  // FUNCIÓN PARA CREAR INCIDENTE POR DIRECCIÓN (Geocodificación)
   const handleCreateByAddress = () => {
     if (!newIncidentTitle || !newIncidentAddress) {
       alert("Por favor, introduce título y dirección.");
       return;
     }
 
-    fetch("http://localhost:3000/api/v1/incident-by-address", { // NUEVO ENDPOINT
+    
+    fetch("http://localhost:3000/api/v1/incident-by-address", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title: newIncidentTitle,
         description: `Reportado vía formulario: ${newIncidentAddress}`,
         address: newIncidentAddress,
-        priority: newIncidentPriority, // Añadimos la prioridad
+        priority: newIncidentPriority,
       }),
     })
       .then((res) => {
@@ -140,142 +204,107 @@ const MapComponent = () => {
         setNewIncidentTitle('');
         setNewIncidentAddress('');
         setNewIncidentPriority('MEDIUM');
-        loadIncidents(); // Recargar el mapa para ver el nuevo incidente
+        loadIncidents();
       })
       .catch((err) => alert(`Error al crear incidente: ${err.message}. Asegúrate de que la dirección es válida.`));
   };
 
 
   return (
-    <div>
-        {/* --- FORMULARIO DE CREACIÓN PROFESIONAL (UX) --- */}
-        <div style={{ padding: '15px', backgroundColor: '#f0f0f0', borderBottom: '2px solid #ccc', display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <h3>🚨 Reportar Incidente</h3>
-            <input
-                type="text"
-                placeholder="Título (Ej: Incendio en fábrica)"
-                value={newIncidentTitle}
-                onChange={(e) => setNewIncidentTitle(e.target.value)}
-                style={{ padding: '8px', border: '1px solid #aaa', borderRadius: '4px', flexGrow: 1 }}
-            />
-            <input
-                type="text"
-                placeholder="Dirección completa (Ej: Calle Mayor 1, Madrid)"
-                value={newIncidentAddress}
-                onChange={(e) => setNewIncidentAddress(e.target.value)}
-                style={{ padding: '8px', border: '1px solid #aaa', borderRadius: '4px', width: '300px' }}
-            />
-            <select
-                value={newIncidentPriority}
-                onChange={(e) => setNewIncidentPriority(e.target.value)}
-                style={{ padding: '8px', border: '1px solid #aaa', borderRadius: '4px' }}
-            >
-                <option value="LOW">Baja</option>
-                <option value="MEDIUM">Media</option>
-                <option value="HIGH">Alta</option>
-            </select>
-            <button 
-                onClick={handleCreateByAddress}
-                style={{ padding: '8px 16px', backgroundColor: '#d9534f', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-            >
-                🔥 Reportar
-            </button>
-        </div>
-        {/* --- MAPA --- */}
-        <MapContainer
-          center={[40.416775, -3.70379]}
-          zoom={14}
-          style={{ height: "500px", width: "100%" }}
-        >
-          <TileLayer
-            attribution="&copy; OpenStreetMap contributors"
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+    <div style={{ width: '100%', height: '100%' }}>
+      {/* --- 1. PANEL DE CONTROL SUPERIOR (Header) --- */}
+      <div className="control-panel">
+          <h3>🚨 UrbanPulse | Dispatch Center</h3>
+          <input
+              type="text"
+              placeholder="Título (Ej: Incendio en fábrica)"
+              value={newIncidentTitle}
+              onChange={(e) => setNewIncidentTitle(e.target.value)}
+              style={{ flexGrow: 1 }}
           />
+          <input
+              type="text"
+              placeholder="Dirección completa (Ej: Calle Mayor 1, Madrid)"
+              value={newIncidentAddress}
+              onChange={(e) => setNewIncidentAddress(e.target.value)}
+              style={{ width: '250px' }}
+          />
+          <select
+              value={newIncidentPriority}
+              onChange={(e) => setNewIncidentPriority(e.target.value)}
+          >
+              <option value="LOW">Baja</option>
+              <option value="MEDIUM">Media</option>
+              <option value="HIGH">Alta</option>
+          </select>
+          <button 
+              onClick={handleCreateByAddress}
+              className="report-button"
+          >
+              🔥 REPORTAR EMERGENCIA
+          </button>
+      </div>
 
-          {/* El LocationMarker original ha sido eliminado */}
+      {/* --- 2. CONTENIDO PRINCIPAL: MAPA + SIDEBAR --- */}
+      <div className="map-and-sidebar">
+          <MapContainer
+              center={[40.416775, -3.70379]}
+              zoom={14}
+              style={{ flexGrow: 1, minHeight: '100%' }}
+          >
+              {/* Capa base oscura de CartoDB para un look tecnológico */}
+              <TileLayer
+                  attribution='&copy; <a href="http://osm.org/copyright">OSM</a> | CartoDB Dark'
+                  url="https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png" 
+              />
 
-          {/* MARCADOR 1: La Ambulancia (Color Dinámico) */}
-          <Marker position={position} icon={getUnitIcon(unitStatus)}>
-            <Popup>
-              🚑 UNIDAD-01 <br />
-              Estado: <strong>{unitStatus}</strong>
-            </Popup>
-          </Marker>
+              {/* MARCADOR 1: La Ambulancia */}
+              <Marker position={position} icon={getUnitIcon(unitStatus)}>
+                  <Popup>
+                      🚑 UNIDAD-01 <br />
+                      Estado: <strong>{unitStatus}</strong>
+                  </Popup>
+              </Marker>
 
-          {/* MARCADORES 2: Los Incidentes (Rojos) */}
-          {incidents.map((inc) => (
-            <Marker
-              key={inc.id}
-              position={[inc.location.coordinates[1], inc.location.coordinates[0]]}
-              icon={IncidentIcon}
-            >
-              <Popup>
-                <strong>🔥 {inc.title}</strong> <br />
-                Prioridad: <strong>{inc.priority}</strong> <br />
-                {inc.description} <br />
-                <small>{new Date(inc.created_at).toLocaleTimeString()}</small>
-                <hr
-                  style={{
-                    margin: "8px 0",
-                    border: "0",
-                    borderTop: "1px solid #ccc",
-                  }}
-                />
-                {/* --- LÓGICA DE DESPACHO --- */}
-                {inc.status === "PENDING" ? (
-                  <button
-                    style={{
-                      width: "100%",
-                      backgroundColor: "#ff4d4f",
-                      color: "white",
-                      border: "none",
-                      padding: "6px",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                      fontWeight: "bold",
-                    }}
-                    onClick={() => {
-                      fetch(
-                        `http://localhost:3000/api/v1/incidents/${inc.id}/dispatch`,
-                        { method: "POST" }
-                      )
-                        .then((res) => res.json())
-                        .then((data) => {
-                          if (data.status === "ERROR") {
-                            alert("❌ " + data.message);
-                          } else {
-                            alert(`✅ Unidad asignada correctamente!`);
-                            loadIncidents();
-                          }
-                        })
-                        .catch((err) => console.error(err));
-                    }}
+              {/* MARCADORES 2: Los Incidentes */}
+              {incidents.map((inc) => (
+                  <Marker
+                      key={inc.id}
+                      position={[inc.location.coordinates[1], inc.location.coordinates[0]]}
+                      icon={IncidentIcon}
                   >
-                    🚨 DESPACHAR UNIDAD
-                  </button>
-                ) : (
-                  <div
-                    style={{
-                      color: "green",
-                      fontWeight: "bold",
-                      textAlign: "center",
-                    }}
-                  >
-                    ✅ Unidad En Camino
-                  </div>
-                )}
-              </Popup>
-            </Marker>
-          ))}
+                      <Popup>
+                          <strong style={{color: inc.priority === 'HIGH' ? '#FF4D4D' : '#00FFFF'}}>
+                              🔥 {inc.title}
+                          </strong> <br />
+                          Prioridad: <span style={{fontWeight: 'bold'}}>{inc.priority}</span> <br />
+                          <small>{new Date(inc.created_at).toLocaleTimeString()}</small>
+                          <hr style={{ borderTop: "1px solid #ccc" }}/>
+                          {/* Muestra solo el estado dentro del popup */}
+                          {inc.status === "PENDING" ? (
+                              <span style={{ color: '#FF4D4D', fontWeight: 'bold' }}>PENDIENTE</span>
+                          ) : (
+                              <span style={{ color: '#4CAF50', fontWeight: 'bold' }}>{inc.status}</span>
+                          )}
+                      </Popup>
+                  </Marker>
+              ))}
 
-          {/* DIBUJO DE LA RUTA REAL (Polyline complejo) */}
-          {routeGeometry.length > 0 && (
-            <Polyline
-              positions={routeGeometry}
-              pathOptions={{ color: "#007bff", dashArray: "8, 8", weight: 4 }}
-            />
-          )}
-        </MapContainer>
+              {/* DIBUJO DE LA RUTA REAL */}
+              {routeGeometry.length > 0 && (
+                  <Polyline
+                      positions={routeGeometry}
+                      pathOptions={{ color: "#00FFFF", dashArray: "8, 8", weight: 4 }} 
+                  />
+              )}
+          </MapContainer>
+
+          {/* --- SIDEBAR: LISTA DE ESTADO DE INCIDENTES --- */}
+          <IncidentList 
+              incidents={incidents} 
+              loadIncidents={loadIncidents} 
+          />
+      </div>
     </div>
   );
 };
