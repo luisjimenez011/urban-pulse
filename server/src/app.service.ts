@@ -32,7 +32,14 @@ export class AppService {
 
   async findAllIncidents() {
     // Añadimos 'relations' para ver qué unidad tiene asignada el incidente (si tiene alguna)
-    return this.incidentRepo.find({ relations: ['assigned_unit'] });
+    return this.incidentRepo.find({ 
+    relations: ['assigned_unit'],
+    // PRIORIZACIÓN: Primero por prioridad (High, Medium, Low), luego por fecha de creación
+    order: {
+        priority: 'DESC', // HIGH debe ser lo primero
+        created_at: 'ASC',
+    },
+});
   }
 
   // --- NUEVO MÉTODO: DESPACHAR ---

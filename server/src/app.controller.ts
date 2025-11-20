@@ -1,7 +1,9 @@
-import { Controller, Get, Post, Body, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, BadRequestException, NotFoundException } from '@nestjs/common';
 import { AppService } from './app.service';
 import { Param } from '@nestjs/common';
 import { RoutingService } from './routing.service';
+import { GeocodingService } from './geocoding.service';
+
 
 // Definimos qué datos esperamos recibir (DTO - Data Transfer Object)
 class CreateIncidentDto {
@@ -16,6 +18,7 @@ export class AppController {
   constructor(
     private readonly appService: AppService,
     private readonly routingService: RoutingService,
+    private readonly geocodingService: GeocodingService,
   ) {}
 
   @Get()
@@ -49,5 +52,30 @@ export class AppController {
     // OSRM espera [Lng, Lat]
     return this.routingService.getRoute(startCoords, endCoords);
   }
+
+  @Post('incident-by-address')
+async createIncidentByAddress(
+    @Body('title') title: string,
+    @Body('description') description: string,
+    @Body('address') address: string, // Nuevo campo
+) {
+    if (!address) {
+        throw new BadRequestException('La dirección es requerida.');
+    }
+
+    const coords = await this.geocodingService.geocodeAddress(address);
+
+    if (!coords) {
+        throw new NotFoundException('Dirección no encontrada por el servicio de geocodificación.');
+    }
+
+    // Ahora usamos las coordenadas obtenidas para crear el incidente.
+    return this.appService.createIncident({
+        title,
+        description,
+        lat: coords.lat, // El servicio las devuelve listas para usar
+        lng: coords.lng,
+    });
+}
   
 }

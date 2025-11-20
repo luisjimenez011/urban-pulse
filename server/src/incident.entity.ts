@@ -12,8 +12,20 @@ export class Incident {
   @Column()
   description: string;
 
-  @Column({ default: 'PENDING' })
+  @Column({
+    type: 'enum',
+    enum: ['PENDING', 'ASSIGNED', 'RESOLVED'],
+    default: 'PENDING',
+  })
   status: string;
+  
+  // --- NUEVO CAMPO: PRIORIDAD ---
+  @Column({
+    type: 'enum',
+    enum: ['LOW', 'MEDIUM', 'HIGH'], 
+    default: 'MEDIUM',
+  })
+  priority: string;
 
   @Column({ type: 'geometry', spatialFeatureType: 'Point', srid: 4326 })
   location: { type: string; coordinates: number[] };
@@ -21,7 +33,7 @@ export class Incident {
   @CreateDateColumn()
   created_at: Date;
 
-  // --- NUEVA RELACIÓN ---
+  // --- RELACIÓN ---
   @ManyToOne(() => Unit, { nullable: true })
   @JoinColumn({ name: 'assigned_unit_id' }) 
   assigned_unit: Unit;
