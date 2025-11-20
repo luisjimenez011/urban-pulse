@@ -2,19 +2,23 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Incident } from './incident.entity';
-import { Unit } from './unit.entity'; 
+import { Unit } from './unit.entity';
 
 @Injectable()
 export class AppService {
   constructor(
     @InjectRepository(Incident)
     private incidentRepo: Repository<Incident>,
-    @InjectRepository(Unit)      
+    @InjectRepository(Unit)
     private unitRepo: Repository<Unit>,
   ) {}
 
   getHello(): object {
-    return { status: 'OK', system: 'UrbanPulse Backend', timestamp: new Date() };
+    return {
+      status: 'OK',
+      system: 'UrbanPulse Backend',
+      timestamp: new Date(),
+    };
   }
 
   async createIncident(data: any) {
@@ -33,28 +37,38 @@ export class AppService {
 
   // --- NUEVO MÉTODO: DESPACHAR ---
   async dispatchUnit(incidentId: string) {
-    // 1. Buscar el incidente
-    const incident = await this.incidentRepo.findOne({ where: { id: incidentId } });
+    const incident = await this.incidentRepo.findOne({
+      where: { id: incidentId },
+    });
     if (!incident) throw new NotFoundException('Incidente no encontrado');
 
-    // 2. Buscar una unidad disponible (Status = IDLE)
-    // En el futuro usaremos PostGIS para buscar la "más cercana", hoy la primera que encontremos.
-    const unit = await this.unitRepo.findOne({ where: { status: 'IDLE' } });
-    
-    if (!unit) {
-      return { status: 'ERROR', message: 'No hay unidades disponibles' };
+    // 1. LÓGICA INTELIGENTE: Buscar la unidad 'IDLE' más cercana usando PostGIS.
+    const nearestUnit = await this.unitRepo
+      .createQueryBuilder('unit')
+      .where('unit.status = :status', { status: 'IDLE' })
+      // Añadimos la cláusula ORDER BY usando la función ST_Distance para calcular la distancia
+      // entre la ubicación de la unidad y la ubicación del incidente (PostGIS).
+      .orderBy(
+        'ST_Distance(unit.location::geography, :incidentLocation::geography)',
+        'ASC',
+      )
+      .setParameter('incidentLocation', incident.location)
+      .limit(1) // Solo queremos la primera (la más cercana)
+      .getOne();
+
+    if (!nearestUnit) {
+      return { status: 'ERROR', message: 'No hay unidades disponibles.' };
     }
 
-    // 3. Realizar la asignación
+    // 2. Realizar la asignación (el resto es igual)
     incident.status = 'ASSIGNED';
-    incident.assigned_unit = unit; // TypeORM maneja la relación por nosotros
+    incident.assigned_unit = nearestUnit;
 
-    unit.status = 'BUSY'; // Ocupamos la unidad
+    nearestUnit.status = 'BUSY';
 
-    // 4. Guardar cambios en transacción (idealmente) o secuencial
-    await this.unitRepo.save(unit);
+    await this.unitRepo.save(nearestUnit);
     const savedIncident = await this.incidentRepo.save(incident);
 
-    return { status: 'SUCCESS', incident: savedIncident, unit: unit };
+    return { status: 'SUCCESS', incident: savedIncident, unit: nearestUnit };
   }
 }

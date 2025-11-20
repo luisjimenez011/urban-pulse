@@ -71,3 +71,17 @@ button:focus-visible {
 .red-icon {
   filter: hue-rotate(140deg) brightness(0.9) saturate(3);
 }
+
+/* ICONOS DINÁMICOS */
+/* Icono IDLE (Verde) */
+.idle-icon {
+    filter: hue-rotate(100deg) brightness(0.9) saturate(3);
+}
+/* Icono BUSY/ASSIGNED (Rojo intenso - ya lo tienes como 'red-icon' pero lo renombras) */
+.busy-icon {
+    filter: hue-rotate(30deg) brightness(1.2) saturate(3); 
+}
+/* Icono OFFLINE (Gris) */
+.offline-icon {
+    filter: grayscale(100%);
+}

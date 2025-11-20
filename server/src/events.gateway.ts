@@ -24,10 +24,10 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
       lat += 0.0001;
       lng += 0.0001;
 
-      // Ahora sí podemos emitir sin que explote
-      this.server.emit('positionUpdate', {
+     this.server.emit('positionUpdate', {
         id: 'ambulancia-01',
-        position: [lat, lng]
+        position: [lat, lng],
+        status: 'IDLE' // Simulación de estado inicial
       });
     }, 3000);
   }
