@@ -1,32 +1,38 @@
-import { WebSocketGateway, WebSocketServer, OnGatewayConnection } from '@nestjs/websockets';
-import { Server } from 'socket.io';
+import { 
+  WebSocketGateway, 
+  WebSocketServer, 
+  OnGatewayInit, 
+  OnGatewayConnection 
+} from '@nestjs/websockets';
+import { Server, Socket } from 'socket.io';
 
-@WebSocketGateway({ cors: true }) // Permitir conexión desde React
-export class EventsGateway implements OnGatewayConnection {
+@WebSocketGateway({ cors: true })
+export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
+  
   @WebSocketServer()
   server: Server;
 
-  handleConnection(client: any) {
-    console.log('Cliente conectado:', client.id);
-  }
-
-  // SIMULACIÓN: Mover la ambulancia un poquito cada 3 segundos
-  constructor() {
-    let lat = 40.416775; // Madrid Centro
+  // Este método se ejecuta AUTOMÁTICAMENTE cuando el servidor está listo
+  afterInit(server: Server) {
+    console.log('WebSocket Gateway inicializado');
+    
+    // Movemos el intervalo aquí, donde es seguro usar this.server
+    let lat = 40.416775;
     let lng = -3.703790;
 
     setInterval(() => {
-      // Movemos las coordenadas ligeramente
-      lat += 0.0001; 
+      lat += 0.0001;
       lng += 0.0001;
 
-      // Emitimos el evento 'positionUpdate' a todos los conectados (React)
+      // Ahora sí podemos emitir sin que explote
       this.server.emit('positionUpdate', {
         id: 'ambulancia-01',
         position: [lat, lng]
       });
-      
-      console.log(`Emitiendo nueva posición: ${lat}, ${lng}`);
-    }, 3000); // Cada 3000ms (3 segundos)
+    }, 3000);
+  }
+
+  handleConnection(client: Socket) {
+    console.log('Cliente conectado:', client.id);
   }
 }

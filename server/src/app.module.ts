@@ -2,22 +2,26 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { Unit } from './unit.entity';
 import { EventsGateway } from './events.gateway';
+import { Unit } from './unit.entity';
+import { Incident } from './incident.entity'; 
 
 @Module({
   imports: [
+    // 1. Configuración global de la Base de Datos (esto ya lo tenías)
     TypeOrmModule.forRoot({
       type: 'postgres',
-      url: 'postgresql://postgres:oU:_1m8E){97@db.ehnqvmgkyufhceqoykag.supabase.co:5432/postgres', 
-      autoLoadEntities: true,
-      synchronize: false, // Solo para desarrollo: crea tablas automáticamente si faltan
-      ssl: { rejectUnauthorized: false }, // Necesario para Supabase
-      entities: [Unit],
-      
+      url: 'postgresql://postgres:oU:_1m8E){97@db.ehnqvmgkyufhceqoykag.supabase.co:5432/postgres',
+      entities: [Unit, Incident], 
+      synchronize: true, // OJO: Ponlo en true un momento para que cree la tabla incidents, luego false
+      ssl: { rejectUnauthorized: false },
     }),
+
+    // 2. AQUÍ ESTÁ LA SOLUCIÓN:
+    // Esto crea los Repositorios para que el Service los pueda usar
+    TypeOrmModule.forFeature([Incident]), 
   ],
   controllers: [AppController],
-  providers: [AppService,EventsGateway],
+  providers: [AppService, EventsGateway],
 })
 export class AppModule {}

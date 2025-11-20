@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+import { useMapEvents } from 'react-leaflet';
 
 // Fix iconos
 let DefaultIcon = L.icon({
@@ -17,6 +18,32 @@ L.Marker.prototype.options.icon = DefaultIcon;
 
 // URL del Backend
 const socket = io('http://localhost:3000');
+
+// Componente invisible que escucha clics
+const LocationMarker = () => {
+  useMapEvents({
+    click(e) {
+      const title = prompt("¿Qué emergencia es? (ej: Incendio)");
+      if (title) {
+        // Llamada al Backend
+        fetch('http://localhost:3000/api/v1/incidents', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: title,
+            description: 'Reportado por usuario',
+            lat: e.latlng.lat,
+            lng: e.latlng.lng
+          })
+        })
+        .then(res => res.json())
+        .then(data => alert(`Incidente creado ID: ${data.id}`))
+        .catch(err => console.error(err));
+      }
+    },
+  });
+  return null;
+};
 
 const MapComponent = () => {
   // Estado inicial: Madrid
@@ -41,6 +68,9 @@ const MapComponent = () => {
         attribution='&copy; OpenStreetMap contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
+
+      <LocationMarker />
+      
       {/* El marcador usa la variable de estado 'position' */}
       <Marker position={position}>
         <Popup>
