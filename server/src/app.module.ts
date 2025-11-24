@@ -8,7 +8,8 @@ import { EventsGateway } from './events.gateway';
 import { Unit } from './unit.entity';
 import { Incident } from './incident.entity'; 
 import { RoutingService } from './routing.service';
-import { GeocodingService } from './geocoding.service'; 
+import { GeocodingService } from './geocoding.service';
+import { IncidentUnit } from './incident-unit.entity'; 
 
 
 @Module({
@@ -16,11 +17,11 @@ import { GeocodingService } from './geocoding.service';
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: 'postgresql://postgres:oU:_1m8E){97@db.ehnqvmgkyufhceqoykag.supabase.co:5432/postgres',
-      entities: [Unit, Incident], 
+      entities: [Unit, Incident, IncidentUnit], 
       synchronize: true, 
       ssl: { rejectUnauthorized: false },
     }),
-    TypeOrmModule.forFeature([Incident, Unit]), 
+    TypeOrmModule.forFeature([Incident, Unit, IncidentUnit]), 
     HttpModule, // <-- ¡AÑADIDO PARA HABILITAR PETICIONES EXTERNAS!
   ],
   controllers: [AppController],

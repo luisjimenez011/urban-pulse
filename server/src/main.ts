@@ -11,8 +11,7 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Prefijo global para que todo sea /api/v1/...
-  app.setGlobalPrefix('api/v1');
+
   
   await app.listen(3000);
   console.log(`Application is running on: ${await app.getUrl()}`);
