@@ -86,12 +86,22 @@ h3 {
 
 /* Estilo para los elementos de la lista de incidentes */
 .incident-item {
+    cursor: pointer;
     padding: 10px;
     margin-bottom: 8px;
     background-color: #333333;
     border-radius: 6px;
     border-left: 5px solid; 
     transition: background-color 0.2s;
+}
+
+/* Estilo para cuando un incidente está seleccionado en la lista */
+.incident-item.selected {
+    background-color: #444444; /* Fondo un poco más claro */
+    border: 2px solid #00FFFF; /* Borde NEÓN completo */
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.2); /* Resplandor */
+    transform: scale(1.02); /* Efecto pop */
+    transition: all 0.2s ease;
 }
 
 .incident-item:hover {
@@ -136,3 +146,35 @@ h3 {
 .offline-icon {
     filter: grayscale(100%);
 }
+
+/* ... tus estilos anteriores ... */
+
+/* --- SISTEMA DE COLORES DE UNIDADES (CSS FILTERS) --- */
+
+/* AMBULANCIA (Amarillo/Naranja) */
+.ambulance-icon {
+  filter: hue-rotate(45deg) brightness(1.2) saturate(2);
+}
+
+/* BOMBEROS (Rojo Intenso) */
+.fire-icon {
+  filter: hue-rotate(0deg) brightness(0.9) saturate(3);
+}
+
+/* POLICÍA NACIONAL (Azul Oscuro) */
+.national-police-icon {
+  filter: hue-rotate(210deg) brightness(0.8) saturate(2);
+}
+
+/* POLICÍA MUNICIPAL (Azul Cielo) */
+.municipal-police-icon {
+  filter: hue-rotate(190deg) brightness(1.2) saturate(1.5);
+}
+
+/* GUARDIA CIVIL (Verde Oscuro) */
+.civil-guard-icon {
+  filter: hue-rotate(100deg) brightness(0.7) saturate(1.5);
+}
+
+/* ESTADOS (Sobrescriben o modifican lo anterior si es necesario, o se usan bordes) */
+/* Para simplificar, usaremos el color del cuerpo como base y el popup indicará el estado */
