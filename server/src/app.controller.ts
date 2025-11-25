@@ -94,4 +94,9 @@ export class AppController {
             priority,
         });
     }
+    // --- NUEVO ENDPOINT: RESOLVER ---
+    @Post('incidents/:id/resolve')
+    async resolveIncident(@Param('id') id: string) {
+        return this.appService.resolveIncident(id);
+    }
 }

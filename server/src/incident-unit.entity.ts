@@ -1,25 +1,29 @@
-
-
-import { Entity, PrimaryGeneratedColumn, ManyToOne, JoinColumn, Column } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, ManyToOne, Column, CreateDateColumn } from 'typeorm';
 import { Incident } from './incident.entity';
 import { Unit } from './unit.entity';
 
+// Tipos de estado para la asignación
+export type IncidentUnitStatus = 'ACTIVE' | 'COMPLETED' | 'CANCELED';
 
 @Entity('incident_unit')
 export class IncidentUnit {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+    @PrimaryGeneratedColumn('uuid')
+    id: string;
 
-  @Column({ default: new Date() }) // Opcional: para saber cuándo se asignó
-  assigned_at: Date;
+    @ManyToOne(() => Incident, incident => incident.assignments, { onDelete: 'CASCADE' })
+    incident: Incident;
 
-  // Relación: Una asignación pertenece a un Incidente
-  @ManyToOne(() => Incident, incident => incident.assignments, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'incident_id' })
-  incident: Incident;
-  
-  // Relación: Una asignación vincula a una Unidad
-  @ManyToOne(() => Unit, unit => unit.assignments, { onDelete: 'RESTRICT' })
-  @JoinColumn({ name: 'unit_id' })
-  unit: Unit;
+    @ManyToOne(() => Unit, unit => unit.assignments, { onDelete: 'CASCADE' })
+    unit: Unit;
+
+    @Column({
+        type: 'varchar',
+        length: 20,
+        default: 'ACTIVE', // Estado inicial de la asignación
+        comment: 'Estado de la asignación: ACTIVE, COMPLETED, CANCELED'
+    })
+    status: IncidentUnitStatus; // AÑADIDO: Estado de la asignación
+
+    @CreateDateColumn({ type: 'timestamp with time zone' })
+    assigned_at: Date;
 }
